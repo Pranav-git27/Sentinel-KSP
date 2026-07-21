@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "targets": [
+      "sentinel_api"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "client": {
+    "source": "client",
+    "plugin": "zcatalyst-cli-plugin-react"
+  }
+}

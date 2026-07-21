@@ -1,0 +1,23 @@
+# Explicitly block all text/documentation extensions everywhere
+*.md
+*.txt
+*.pdf
+*.rst
+*.json
+*.html
+
+# Explicitly block all image and media extensions everywhere
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.gif
+*.bmp
+
+# Safely ignore workspace and system metadata folders
+graphify-out/
+.catalystrc
+.vscode/
+.idea/
+.git/
+.venv/

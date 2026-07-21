@@ -1,0 +1,6 @@
+zcatalyst-sdk
+Flask
+Flask-CORS
+networkx
+pandas
+scikit-learn

@@ -1,0 +1,208 @@
+# =============================================================
+# Sentinel-KSP — Root .gitignore
+# Covers: Python, Node.js / React, Zoho Catalyst, IDEs, OS
+# =============================================================
+
+
+# -------------------------------------------------------------
+# Zoho Catalyst
+# -------------------------------------------------------------
+# Local Catalyst CLI configuration (contains project/env IDs)
+.catalystrc
+
+# Catalyst build / deploy artifacts
+catalyst-build/
+.catalyst/
+*.catalyst.zip
+
+
+# -------------------------------------------------------------
+# Python (Backend / Functions)
+# -------------------------------------------------------------
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IPython profile
+profile_default/
+ipython_config.py
+
+# Environments / secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Flask instance folder
+instance/
+webapp.db
+
+
+# -------------------------------------------------------------
+# Node.js / React (Client)
+# -------------------------------------------------------------
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.pnp.cjs
+.pnp.mjs
+
+# Testing / coverage
+coverage/
+
+# Production build output
+client/build/
+build/
+
+# Misc logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local env files (CRA)
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Vite / Next.js (in case of future migration)
+.next/
+out/
+.vite/
+
+# Dependency directories that may be generated
+jspm_packages/
+
+
+# -------------------------------------------------------------
+# Graphify analysis output (generated, not source)
+# -------------------------------------------------------------
+graphify-out/
+
+
+# -------------------------------------------------------------
+# Logs & temporary files
+# -------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+
+# -------------------------------------------------------------
+# Editors / IDEs
+# -------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.history/
+
+
+# -------------------------------------------------------------
+# Operating Systems
+# -------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+
+# -------------------------------------------------------------
+# Security / secrets — never commit credentials
+# -------------------------------------------------------------
+*.pem
+*.key
+*.cert
+secrets.json
+credentials.json
+google-services.json
