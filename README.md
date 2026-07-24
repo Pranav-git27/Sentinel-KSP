@@ -1,294 +1,299 @@
-# Sentinel-KSP
+# Sentinel-Audit API
 
-> A full-stack application built on **Zoho Catalyst**, combining a **React 19** web client with a **Python / Flask** serverless backend enriched with data-science capabilities (NetworkX, Pandas, scikit-learn).
+> DevSecOps & Spatial Intelligence Engine for Crime Analytics
 
-[![Catalyst](https://img.shields.io/badge/Zoho-Catalyst-1f73c4?logo=zoho&logoColor=white)](https://www.zoho.com/catalyst/)
-[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)](https://react.dev/)
-[![Python](https://img.shields.io/badge/Python-3-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-API-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Zoho Catalyst](https://img.shields.io/badge/Zoho-Catalyst-1F73C4?logo=zoho&logoColor=white)](https://www.zoho.com/catalyst/)
+[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 
----
+Sentinel-Audit API is a Flask backend for crime analytics on Zoho Catalyst. It reads operational crime data from Zoho Catalyst Data Store, transforms it into geospatial and graph-ready structures, and exposes focused intelligence endpoints for hotspot detection, entity-link analysis, and Modus Operandi similarity analysis.
 
-## Table of Contents
+## Architecture Overview
 
-- [Overview](#overview)
-- [Project Architecture](#project-architecture)
-- [Repository Structure](#repository-structure)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Backend Setup (Python)](#2-backend-setup-python)
-  - [3. Frontend Setup (React)](#3-frontend-setup-react)
-- [Available Scripts](#available-scripts)
-  - [Client Scripts](#client-scripts)
-- [Environment Configuration](#environment-configuration)
-- [Deployment](#deployment)
-- [Code Analysis (Graphify)](#code-analysis-graphify)
-- [Project Status](#project-status)
-- [Contributing](#contributing)
-- [License](#license)
+The backend entry point is [functions/sentinel_api/main.py](functions/sentinel_api/main.py). It creates the Flask application, enables CORS, registers the API blueprints, and exposes health probes for local execution and Zoho Catalyst Advanced Function runtime execution.
 
----
-
-## Overview
-
-**Sentinel-KSP** is a serverless-first application scaffolded with the Zoho Catalyst CLI. It is organized as a monorepo containing two primary modules:
-
-1. **`client/`** — A React 19 single-page application (bootstrapped with Create React App) that serves as the user-facing frontend.
-2. **`functions/`** — A Python serverless functions directory (target: `sentinel_api`) that exposes backend APIs, backed by Flask and a data-science stack for graph and ML workloads.
-
-The project is wired to a Catalyst project named **Sentinel-KSP** in the **Development** environment (timezone: Asia/Kolkata).
-
----
-
-## Project Architecture
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                      Browser (User)                       │
-└────────────────────────────┬─────────────────────────────┘
-                             │ HTTPS
-                             ▼
-┌──────────────────────────────────────────────────────────┐
-│            Zoho Catalyst — Development Env                │
-│  ┌──────────────────────┐    ┌─────────────────────────┐  │
-│  │   client/ (React 19)  │    │  functions/ (Python)    │  │
-│  │   Static Web Hosting  │───▶│  sentinel_api target    │  │
-│  │   CRA + web-vitals    │    │  Flask + CORS            │  │
-│  └──────────────────────┘    │  networkx / pandas /     │  │
-│                              │  scikit-learn             │  │
-│                              └─────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
+```text
+Client / Analyst Tool
+        |
+        | HTTP JSON
+        v
+Flask API: functions/sentinel_api/main.py
+        |
+        | registered blueprints under /api
+        v
+Analytics Routes
+  - Spatial hotspot detection
+  - Case-to-accused graph construction
+  - Modus Operandi text similarity
+        |
+        | direct REST ZCQL fetch_all_rows()
+        v
+Zoho Catalyst BaaS Data Store
 ```
 
-The frontend is served as a static web app and communicates with the serverless Python functions hosted on Catalyst. The backend leverages graph and machine-learning libraries to power analytical endpoints.
+Core processing flow:
 
----
+| Layer | Implementation | Role |
+| --- | --- | --- |
+| Application factory | [functions/sentinel_api/main.py](functions/sentinel_api/main.py) | Builds the Flask app and registers route blueprints. |
+| Catalyst configuration | [functions/sentinel_api/config.py](functions/sentinel_api/config.py) | Initializes the Catalyst SDK for compatibility and provides REST-backed data fetching. |
+| Spatial analytics | [functions/sentinel_api/routes/geospatial.py](functions/sentinel_api/routes/geospatial.py) | Fetches `CaseMaster` rows and applies DBSCAN clustering to latitude/longitude coordinates. |
+| Link analysis | [functions/sentinel_api/routes/link_analysis.py](functions/sentinel_api/routes/link_analysis.py) | Builds a NetworkX graph from `CaseMaster` and `Accused` records. |
+| Predictive analytics | [functions/sentinel_api/routes/predictive.py](functions/sentinel_api/routes/predictive.py) | Computes Modus Operandi similarity using TF-IDF vectors and cosine similarity. |
 
-## Repository Structure
+### Data Processing
 
-```
-sentinel-ksp/
-├── .catalystrc              # Catalyst CLI local config (project & env IDs)
-├── .graphifyignore          # Ignore rules for the Graphify analyzer
-├── .gitignore               # Root ignore rules (Python, Node, OS, IDE)
-├── catalyst.json            # Catalyst project wiring (functions + client)
-├── requirements.txt         # Python dependencies for the functions
-├── client/                  # React 19 frontend application
-│   ├── .gitignore           # Client-specific ignore rules
-│   ├── package.json         # React app dependencies & scripts
-│   ├── client-package.json  # Catalyst client packaging metadata
-│   ├── package-lock.json    # Locked dependency tree
-│   ├── public/              # Static public assets (HTML, icons, manifest)
-│   └── src/                 # React source code
-│       ├── App.js           # Root application component
-│       ├── App.css          # Application styles
-│       ├── App.test.js      # Component tests
-│       ├── index.js         # React DOM entry point
-│       ├── index.css        # Global styles
-│       ├── logo.svg         # Application logo
-│       ├── reportWebVitals.js
-│       └── setupTests.js
-├── functions/               # Python serverless functions (sentinel_api)
-└── graphify-out/            # Generated code-graph analysis (ignored)
-    ├── .graphify_analysis.json
-    ├── graph.json
-    └── manifest.json
+Spatial intelligence is implemented in [functions/sentinel_api/routes/geospatial.py](functions/sentinel_api/routes/geospatial.py). The `/api/spatial/hotspots` endpoint loads `CaseMaster` records, filters rows with usable `Latitude` and `Longitude`, converts coordinates to radians, and runs DBSCAN with a haversine distance metric. The response is returned as a GeoJSON `FeatureCollection` with hotspot membership and cluster metadata embedded in feature properties.
+
+Entity-link intelligence is implemented in [functions/sentinel_api/routes/link_analysis.py](functions/sentinel_api/routes/link_analysis.py). The `/api/graph/network` endpoint loads `CaseMaster` and `Accused` records, creates Case and Accused nodes, connects related entities with `LINKED_TO` edges, and computes betweenness centrality to identify high-importance hubs in the network.
+
+MO similarity analytics are implemented in [functions/sentinel_api/routes/predictive.py](functions/sentinel_api/routes/predictive.py). The `/api/analytics/mo-clusters` endpoint loads `CaseMaster` records with `ModusOperandi` text, vectorizes the corpus with TF-IDF, computes cosine similarity between case vectors, and returns matched case pairs above the requested threshold.
+
+## Quickstart
+
+### 1. Environment Setup
+
+Create a `.env` file at the repository root with the Catalyst and OAuth credentials used by the backend:
+
+```env
+CATALYST_PROJECT_ID=your_project_id
+CATALYST_PROJECT_KEY=your_project_key
+ZC_SDK_CLIENT_ID=your_self_client_id
+ZC_SDK_CLIENT_SECRET=your_self_client_secret
+ZC_SDK_REFRESH_TOKEN=your_self_client_refresh_token
+CATALYST_ENV=Development
 ```
 
----
+Required variables:
 
-## Technology Stack
+| Variable | Purpose |
+| --- | --- |
+| `CATALYST_PROJECT_ID` | Zoho Catalyst project ID used to build BaaS REST query URLs. |
+| `CATALYST_PROJECT_KEY` | Catalyst project key used by the SDK initialization path. |
+| `ZC_SDK_CLIENT_ID` | Zoho OAuth self-client ID. |
+| `ZC_SDK_CLIENT_SECRET` | Zoho OAuth self-client secret. |
+| `ZC_SDK_REFRESH_TOKEN` | Refresh token used to generate short-lived OAuth access tokens. |
+| `CATALYST_ENV` | Catalyst environment header, usually `Development` locally. |
 
-### Frontend (`client/`)
-| Technology | Purpose |
-|------------|---------|
-| **React 19** | UI library |
-| **Create React App 5** | Build tooling & zero-config setup |
-| **react-scripts** | Dev server, build, and test runner |
-| **web-vitals** | Performance metrics reporting |
-| **zcatalyst-cli-plugin-react** | Catalyst-specific React integration |
+### 2. Install Dependencies
 
-### Backend (`functions/`)
-| Technology | Purpose |
-|------------|---------|
-| **Flask** | Lightweight WSGI web framework for APIs |
-| **Flask-CORS** | Cross-Origin Resource Sharing support |
-| **ZCatalyst SDK** (`zcatalyst-sdk`) | Official Zoho Catalyst Python SDK |
-| **NetworkX** | Graph & network analysis |
-| **Pandas** | Data manipulation & analysis |
-| **scikit-learn** | Machine learning utilities |
-
-### Platform & Tooling
-| Tool | Purpose |
-|------|---------|
-| **Zoho Catalyst CLI** | Project scaffolding, local dev, deployment |
-| **Graphify** | Codebase graph & community analysis |
-| **npm** | Frontend package management |
-
----
-
-## Prerequisites
-
-Ensure the following are installed on your machine before you begin:
-
-- **Node.js** ≥ 18 (for the React client)
-- **npm** (bundled with Node.js)
-- **Python** ≥ 3.8 (for the serverless functions)
-- **pip** (Python package installer)
-- **Zoho Catalyst CLI** — [Installation guide](https://www.zoho.com/catalyst/help/cli/install.html)
-- A Zoho Catalyst account with access to the **Sentinel-KSP** project
-
----
-
-## Getting Started
-
-### 1. Clone the Repository
+Install the Python dependencies listed in [requirements.txt](requirements.txt):
 
 ```bash
-git clone <repository-url> sentinel-ksp
-cd sentinel-ksp
-```
-
-### 2. Backend Setup (Python)
-
-The Python dependencies power the serverless functions in [`functions/`](functions/).
-
-```bash
-# Create and activate a virtual environment
-python -m venv .venv
-
-# Activate it
-# On Windows (cmd.exe):
-.venv\Scripts\activate
-# On macOS / Linux:
-source .venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-Installed packages:
-- `zcatalyst-sdk`
-- `Flask`
-- `Flask-CORS`
-- `networkx`
-- `pandas`
-- `scikit-learn`
+The backend depends on Flask, Flask-CORS, Requests, python-dotenv, zcatalyst-sdk, NumPy, NetworkX, Pandas, and Scikit-Learn.
 
-### 3. Frontend Setup (React)
+### 3. Run the API Server
+
+Start the Flask application from the repository root:
 
 ```bash
-cd client
-npm install
-npm start
+python functions/sentinel_api/main.py
 ```
 
-The development server starts at **http://localhost:3000**. The page will hot-reload on edits, and lint errors are reported in the console.
+The local server binds to `http://localhost:5000` by default.
 
----
+Health endpoints exposed by [functions/sentinel_api/main.py](functions/sentinel_api/main.py):
 
-## Available Scripts
+| Method | Route | Description |
+| --- | --- | --- |
+| GET | `/` | Base liveness probe. |
+| GET | `/api/health` | Backward-compatible liveness probe. |
 
-### Client Scripts
+## API Endpoints
 
-Run these from the [`client/`](client/) directory:
+The following routes are verified in the registered Flask blueprints.
 
-| Command | Description |
-|---------|-------------|
-| `npm start` | Starts the React dev server on port 3000 with hot-reload. |
-| `npm run build` | Bundles the app for production into the `build/` folder. |
-| `npm test` | Launches the Jest test runner in interactive watch mode. |
-| `npm run eject` | **One-way operation** — copies CRA config into the project for full control. Not recommended unless necessary. |
+### GET /api/spatial/hotspots
 
----
+Returns a GeoJSON `FeatureCollection` containing geocoded case points from `CaseMaster`. Each feature includes the original case fields plus hotspot annotations.
 
-## Environment Configuration
+Implemented in [functions/sentinel_api/routes/geospatial.py](functions/sentinel_api/routes/geospatial.py).
 
-The project is bound to a Catalyst project via [`.catalystrc`](.catalystrc):
+Response shape:
 
-| Property | Value |
-|----------|-------|
-| **Project name** | Sentinel-KSP |
-| **Project ID** | `51748000000013048` |
-| **Domain** | `sentinel-ksp-60079342823.development` |
-| **Environment** | Development (`60079342823`) |
-| **Timezone** | Asia/Kolkata |
-
-The [`.gitignore`](.gitignore) file ensures that local credentials, virtual environments, build artifacts, and OS/IDE metadata are never committed.
-
-> **Note:** The `.catalystrc` file is ignored by Git. Each developer must run `catalyst init` (or the equivalent CLI login) to generate their own local copy.
-
----
-
-## Deployment
-
-Deployment is handled through the Zoho Catalyst CLI, which reads the project wiring from [`catalyst.json`](catalyst.json):
-
-```jsonc
+```json
 {
-  "functions": { "targets": ["sentinel_api"], "source": "functions" },
-  "client":    { "source": "client", "plugin": "zcatalyst-cli-plugin-react" }
+  "success": true,
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [77.5946, 12.9716]
+      },
+      "properties": {
+        "CaseID": "CASE-001",
+        "Latitude": 12.9716,
+        "Longitude": 77.5946,
+        "is_hotspot": true,
+        "cluster_id": 0
+      }
+    }
+  ],
+  "summary": {
+    "total_cases": 100,
+    "geocoded_cases": 95,
+    "hotspot_cases": 18,
+    "clusters": 3,
+    "eps_km": 2.0,
+    "min_samples": 3
+  }
 }
 ```
 
-Typical deployment flow:
+### GET /api/graph/network
 
-```bash
-# From the project root
-catalyst deploy
+Returns graph visualization data built from `CaseMaster` and `Accused` records. Nodes represent Cases and Accused entities. Edges use the `LINKED_TO` relationship.
+
+Implemented in [functions/sentinel_api/routes/link_analysis.py](functions/sentinel_api/routes/link_analysis.py).
+
+Response shape:
+
+```json
+{
+  "success": true,
+  "nodes": [
+    {
+      "id": "case_CASE-001",
+      "type": "Case",
+      "label": "FIR-001",
+      "case_id": "CASE-001",
+      "betweenness_centrality": 0.125
+    },
+    {
+      "id": "accused_ACC-001",
+      "type": "Accused",
+      "label": "Accused Name",
+      "accused_id": "ACC-001",
+      "betweenness_centrality": 0.0
+    }
+  ],
+  "edges": [
+    {
+      "source": "accused_ACC-001",
+      "target": "case_CASE-001",
+      "type": "LINKED_TO",
+      "relationship": "LINKED_TO"
+    }
+  ],
+  "summary": {
+    "case_nodes": 1,
+    "accused_nodes": 1,
+    "edge_count": 1,
+    "connected_components": 1,
+    "top_hubs": []
+  }
+}
 ```
 
-This deploys:
-- The **client** static app to Catalyst Web Hosting.
-- The **`sentinel_api`** function target from [`functions/`](functions/) to Catalyst Functions.
+### GET /api/analytics/mo-clusters
 
-Refer to the [Catalyst CLI deployment documentation](https://www.zoho.com/catalyst/help/cli/deploy.html) for advanced options.
+Returns pairwise Modus Operandi similarity matches from `CaseMaster`. The endpoint vectorizes `ModusOperandi` text with TF-IDF and computes cosine similarity between cases.
 
----
+Implemented in [functions/sentinel_api/routes/predictive.py](functions/sentinel_api/routes/predictive.py).
 
-## Code Analysis (Graphify)
+Query parameters:
 
-The project includes a [`.graphifyignore`](.graphifyignore) configuration and a generated [`graphify-out/`](graphify-out/) directory. Graphify analyzes the codebase to produce:
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `threshold` | `0.35` | Minimum cosine similarity score to include a case pair. Must be between `0` and `1`. |
 
-- **`graph.json`** — A dependency graph of the source modules.
-- **`manifest.json`** — AST and semantic hashes per file for change detection.
-- **`.graphify_analysis.json`** — Community detection, cohesion metrics, and "god" component identification.
+Response shape:
 
-> The `graphify-out/` directory is generated output and is excluded from version control via [`.gitignore`](.gitignore).
+```json
+{
+  "success": true,
+  "threshold": 0.35,
+  "pairs": [
+    {
+      "case_a": {
+        "case_id": "CASE-001",
+        "row_id": "1001",
+        "fir_number": "FIR-001",
+        "crime_group": "Theft",
+        "crime_head": "Burglary",
+        "offense_date": "2024-01-15",
+        "modus_operandi": "Entry through rear door at night"
+      },
+      "case_b": {
+        "case_id": "CASE-002",
+        "row_id": "1002",
+        "fir_number": "FIR-002",
+        "crime_group": "Theft",
+        "crime_head": "Burglary",
+        "offense_date": "2024-02-10",
+        "modus_operandi": "Night entry through rear entrance"
+      },
+      "similarity": 0.782441
+    }
+  ],
+  "summary": {
+    "total_cases": 100,
+    "analyzable_cases": 72,
+    "matched_pairs": 8
+  }
+}
+```
 
----
+## Data Backend
 
-## Project Status
+The analytics endpoints use `fetch_all_rows()` in [functions/sentinel_api/config.py](functions/sentinel_api/config.py) to query Zoho Catalyst Data Store through the Catalyst BaaS REST API instead of relying on the SDK ZCQL executor.
 
-### Completed
-- ✅ Zoho Catalyst project initialization (`.catalystrc`, `catalyst.json`)
-- ✅ React 19 client scaffolded via Create React App (`client/`)
-- ✅ Python backend dependency manifest defined (`requirements.txt`)
-- ✅ Serverless function target `sentinel_api` configured (`functions/`)
-- ✅ Graphify code-analysis tooling configured (`.graphifyignore`)
-- ✅ Professional root [`.gitignore`](.gitignore) covering Python, Node, Catalyst, IDEs, and OS files
-- ✅ Modular project documentation (this file)
+This REST bypass generates a fresh Zoho OAuth access token from `ZC_SDK_CLIENT_ID`, `ZC_SDK_CLIENT_SECRET`, and `ZC_SDK_REFRESH_TOKEN`, caches it in memory with an expiry safety window, and posts ZCQL payloads directly to:
 
-### In Progress / Planned
-- 🚧 Implementation of `sentinel_api` function handlers in [`functions/`](functions/)
-- 🚧 Frontend feature development in [`client/src/`](client/src/)
-- 🚧 Integration between the React client and the Flask API
-- 🚧 Data-science endpoints leveraging NetworkX, Pandas, and scikit-learn
+```text
+https://api.catalyst.zoho.in/baas/v1/project/{project_id}/query
+```
 
----
+The request includes:
 
-## Contributing
+```json
+{
+  "Authorization": "Zoho-oauthtoken <access_token>",
+  "Environment": "Development",
+  "Content-Type": "application/json"
+}
+```
 
-1. Create a feature branch from `main`: `git checkout -b feature/your-feature`
-2. Ensure [`.gitignore`](.gitignore) rules are respected — never commit secrets, `node_modules/`, `.venv/`, or `graphify-out/`.
-3. Run client tests before submitting: `cd client && npm test`
-4. Write clear, conventional commit messages.
-5. Open a pull request describing the change and linking any related issue.
+This bypass avoids the SDK URL construction issue where ZCQL requests can be routed to `/query` without the required `/baas/v1/project/{project_id}` prefix during local execution.
 
----
+The existing SDK initialization path remains available in [functions/sentinel_api/config.py](functions/sentinel_api/config.py) for non-ZCQL compatibility and cloud runtime fallback behavior.
 
-## License
+## Repository Layout
 
-This project is proprietary. All rights reserved. See the project maintainers for licensing and usage terms.
+```text
+sentinel-ksp/
+├── catalyst.json
+├── requirements.txt
+├── README.md
+├── client/
+│   ├── package.json
+│   └── src/
+└── functions/
+    └── sentinel_api/
+        ├── __init__.py
+        ├── catalyst-config.json
+        ├── config.py
+        ├── main.py
+        ├── routes/
+        │   ├── __init__.py
+        │   ├── auth.py
+        │   ├── geospatial.py
+        │   ├── link_analysis.py
+        │   └── predictive.py
+        └── scripts/
+            └── seed_data.py
+```
+
+## Implementation Notes
+
+- Flask app creation and blueprint registration live in [functions/sentinel_api/main.py](functions/sentinel_api/main.py).
+- REST-backed Catalyst ZCQL row fetching lives in [functions/sentinel_api/config.py](functions/sentinel_api/config.py).
+- DBSCAN hotspot clustering uses `sklearn.cluster.DBSCAN` with haversine distance over latitude/longitude coordinates.
+- Entity graph generation uses NetworkX and returns frontend-ready `nodes` and `edges` arrays.
+- MO clustering uses `TfidfVectorizer` and `cosine_similarity` from Scikit-Learn.

@@ -7,27 +7,30 @@ crime-risk scores for a given district based on historical case volume.
 import logging
 
 from flask import Blueprint, jsonify, request
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-from config import escape_zcql_string, get_zcql_service
+from config import escape_zcql_string, fetch_all_rows, get_zcql_service
 
 logger = logging.getLogger(__name__)
 
-predictive_bp = Blueprint("predictive_bp", __name__, url_prefix="/api/predictive")
+predictive_bp = Blueprint("predictive_bp", __name__, url_prefix="/api")
 
-# Thresholds used to translate the raw case count into a 0-100 risk score.
-# A district with ``MAX_CASES`` or more cases maps to the maximum score (100).
 MAX_CASES = 1000
+DEFAULT_MO_SIMILARITY_THRESHOLD = 0.35
+
+
+def _normalize_rows(rows, table_name):
+    """Return Catalyst/ZCQL rows as plain dictionaries."""
+    normalized = []
+    for row in rows or []:
+        if isinstance(row, dict):
+            normalized.append(row.get(table_name, row))
+    return normalized
 
 
 def _classify_risk(score):
-    """Map a numeric risk score to a categorical risk level.
-
-    Args:
-        score (int): A risk score in the range 0-100.
-
-    Returns:
-        str: ``"HIGH"``, ``"MEDIUM"`` or ``"LOW"``.
-    """
+    """Map a numeric risk score to a categorical risk level."""
     if score >= 70:
         return "HIGH"
     if score >= 40:
@@ -35,19 +38,25 @@ def _classify_risk(score):
     return "LOW"
 
 
-@predictive_bp.route("/risk-score", methods=["POST"])
+def _case_identifier(case_row):
+    return case_row.get("CaseID") or case_row.get("ROWID")
+
+
+def _case_summary(case_row):
+    return {
+        "case_id": case_row.get("CaseID"),
+        "row_id": case_row.get("ROWID"),
+        "fir_number": case_row.get("FIRNumber"),
+        "crime_group": case_row.get("CrimeGroup"),
+        "crime_head": case_row.get("CrimeHead"),
+        "offense_date": case_row.get("OffenseDate"),
+        "modus_operandi": case_row.get("ModusOperandi"),
+    }
+
+
+@predictive_bp.route("/predictive/risk-score", methods=["POST"])
 def risk_score():
-    """Compute a 0-100 crime risk score for a district.
-
-    Reads ``district`` from the JSON request body, counts the number of cases
-    recorded for that district in ``CaseMaster`` via ZCQL, scales the count
-    into a 0-100 score, and assigns a categorical risk level (``HIGH``,
-    ``MEDIUM`` or ``LOW``).
-
-    Returns:
-        flask.Response: A JSON object containing the district, case count,
-        computed ``risk_score`` and ``risk_level``.
-    """
+    """Compute a 0-100 crime risk score for a district."""
     body = request.get_json(silent=True) or {}
     district = body.get("district")
 
@@ -83,11 +92,8 @@ def risk_score():
         except (TypeError, ValueError):
             case_count = 0
 
-    # Scale the case count into a 0-100 risk score.
-    risk_score = (
-        min(100, int(round((case_count / MAX_CASES) * 100))) if MAX_CASES else 0
-    )
-    risk_level = _classify_risk(risk_score)
+    risk_value = min(100, int(round((case_count / MAX_CASES) * 100))) if MAX_CASES else 0
+    risk_level = _classify_risk(risk_value)
 
     return (
         jsonify(
@@ -95,8 +101,111 @@ def risk_score():
                 "success": True,
                 "district": district,
                 "case_count": case_count,
-                "risk_score": risk_score,
+                "risk_score": risk_value,
                 "risk_level": risk_level,
+            }
+        ),
+        200,
+    )
+
+
+@predictive_bp.route("/analytics/mo-clusters", methods=["GET"])
+def get_mo_clusters():
+    """Return high-similarity case pairs based on ModusOperandi text."""
+    threshold_arg = request.args.get("threshold", DEFAULT_MO_SIMILARITY_THRESHOLD)
+    try:
+        threshold = float(threshold_arg)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "threshold must be numeric."}), 400
+
+    if threshold < 0 or threshold > 1:
+        return jsonify({"success": False, "message": "threshold must be between 0 and 1."}), 400
+
+    try:
+        cases = _normalize_rows(fetch_all_rows("CaseMaster"), "CaseMaster")
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.exception("Failed to fetch CaseMaster rows for MO clustering: %s", exc)
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Failed to compute MO clusters.",
+                    "pairs": [],
+                    "summary": {},
+                }
+            ),
+            500,
+        )
+
+    analyzable_cases = [
+        case_row
+        for case_row in cases
+        if _case_identifier(case_row) is not None
+        and str(case_row.get("ModusOperandi") or "").strip()
+    ]
+
+    if len(analyzable_cases) < 2:
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "threshold": threshold,
+                    "pairs": [],
+                    "summary": {
+                        "total_cases": len(cases),
+                        "analyzable_cases": len(analyzable_cases),
+                        "matched_pairs": 0,
+                    },
+                }
+            ),
+            200,
+        )
+
+    corpus = [str(case_row.get("ModusOperandi") or "") for case_row in analyzable_cases]
+
+    try:
+        vectors = TfidfVectorizer(stop_words="english").fit_transform(corpus)
+        similarity_matrix = cosine_similarity(vectors)
+    except ValueError as exc:
+        logger.exception("Failed to vectorize ModusOperandi text: %s", exc)
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Failed to vectorize ModusOperandi text.",
+                    "pairs": [],
+                    "summary": {},
+                }
+            ),
+            500,
+        )
+
+    pairs = []
+    for left_index in range(len(analyzable_cases)):
+        for right_index in range(left_index + 1, len(analyzable_cases)):
+            score = float(similarity_matrix[left_index][right_index])
+            if score >= threshold:
+                pairs.append(
+                    {
+                        "case_a": _case_summary(analyzable_cases[left_index]),
+                        "case_b": _case_summary(analyzable_cases[right_index]),
+                        "similarity": round(score, 6),
+                    }
+                )
+
+    pairs.sort(key=lambda pair: pair["similarity"], reverse=True)
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "threshold": threshold,
+                "pairs": pairs,
+                "summary": {
+                    "total_cases": len(cases),
+                    "analyzable_cases": len(analyzable_cases),
+                    "matched_pairs": len(pairs),
+                },
             }
         ),
         200,

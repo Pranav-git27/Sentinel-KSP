@@ -1,6 +1,9 @@
 zcatalyst-sdk
-Flask
-Flask-CORS
-networkx
-pandas
+flask
+flask-cors
+requests
+python-dotenv
 scikit-learn
+networkx
+numpy
+pandas
